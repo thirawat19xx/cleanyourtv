@@ -2,17 +2,37 @@ plugins {
     id 'com.android.application'
 }
 
+// The fork's optional Custom Edition keeps the upstream build and manifest intact.
+def customEdition = providers.gradleProperty('customEdition').map { it.toBoolean() }.getOrElse(false)
+
 android {
     namespace 'com.gathin.tvhome'
     compileSdk 34
 
     defaultConfig {
         // Opt-in identity for firmware with a package-name HOME allowlist; see docs/devices/xiaomi-mitv-aetp0-dofus.md.
-        applicationId providers.gradleProperty('launcherApplicationId').getOrElse('com.gathin.tvhome')
+        applicationId providers.gradleProperty('launcherApplicationId').getOrElse(
+                customEdition ? 'io.github.thirawat19xx.cleanyourtv.custom' : 'com.gathin.tvhome')
         minSdk 26
         targetSdk 34
-        versionCode 9
-        versionName '3.0'
+        versionCode customEdition ? 10 : 9
+        versionName customEdition ? '3.1-custom-preview1' : '3.0'
+    }
+
+    if (customEdition) {
+        sourceSets {
+            main {
+                java.srcDir 'src/custom/java'
+                res.srcDir 'src/custom/res'
+                assets.srcDir 'src/custom/assets'
+                manifest.srcFile 'src/custom/AndroidManifest.xml'
+            }
+            test.java.srcDir 'src/customTest/java'
+        }
+        // Retain the cloud preview's signer when present. Fresh Android Studio checkouts
+        // use Android's normal automatically created debug key instead of a missing file.
+        def customDebugKey = rootProject.file('.gradle/custom-signing/debug.keystore')
+        if (customDebugKey.isFile()) signingConfigs.debug.storeFile = customDebugKey
     }
 
     buildTypes {
